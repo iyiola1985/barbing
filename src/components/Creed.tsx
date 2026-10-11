@@ -1,6 +1,11 @@
 import { useLayoutEffect, useRef } from "react";
-import { gsap } from "../animation/gsap";
+import { gsap, ScrollTrigger } from "../animation/gsap";
+import { proceduralChair } from "../animation/proceduralChair";
+import { FrameSequence } from "../animation/sequence";
+import { sequences } from "../content/sequences";
 import { site } from "../content/site";
+
+const aboutSequence = new FrameSequence(sequences.about.manifest, proceduralChair);
 
 type CreedProps = {
   reduced: boolean;
@@ -8,10 +13,61 @@ type CreedProps = {
 
 export function Creed({ reduced }: CreedProps) {
   const rootRef = useRef<HTMLElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
-    if (!root || reduced) return;
+    const canvas = canvasRef.current;
+    if (!root || !canvas) return;
+
+    const context2d = canvas.getContext("2d");
+    if (!context2d) return;
+
+    let progress = reduced ? 0.35 : 0;
+    let alive = true;
+
+    const paint = (value: number) => {
+      progress = value;
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      if (width < 2 || height < 2) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+      const bitmapWidth = Math.max(1, Math.round(width * dpr));
+      const bitmapHeight = Math.max(1, Math.round(height * dpr));
+      if (canvas.width !== bitmapWidth || canvas.height !== bitmapHeight) {
+        canvas.width = bitmapWidth;
+        canvas.height = bitmapHeight;
+      }
+      context2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+      aboutSequence.draw(context2d, width, height, value);
+    };
+
+    const resize = () => paint(progress);
+    const observer = new ResizeObserver(resize);
+    observer.observe(canvas);
+    paint(progress);
+    const frame = requestAnimationFrame(() => {
+      if (alive) paint(progress);
+    });
+    void aboutSequence.init().then(() => {
+      if (alive) paint(progress);
+    });
+
+    if (reduced) {
+      return () => {
+        alive = false;
+        cancelAnimationFrame(frame);
+        observer.disconnect();
+      };
+    }
+
+    const film = ScrollTrigger.create({
+      trigger: root,
+      start: "top bottom",
+      end: "bottom top",
+      scrub: true,
+      onUpdate: (self) => paint(self.progress),
+    });
 
     const context = gsap.context(() => {
       gsap.from(".mask-line", {
@@ -40,34 +96,44 @@ export function Creed({ reduced }: CreedProps) {
       });
     }, root);
 
-    return () => context.revert();
+    return () => {
+      alive = false;
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      film.kill();
+      context.revert();
+    };
   }, [reduced]);
 
   return (
     <section id="creed" className="section creed" ref={rootRef}>
-      <p className="kicker">{site.creed.kicker}</p>
-      <h2 className="creed-title">
-        {site.creed.lines.map((line) => (
-          <span className="mask" key={line.text}>
-            <span className={line.emphasis ? "mask-line is-emphasis" : "mask-line"}>{line.text}</span>
-          </span>
-        ))}
-      </h2>
-      <div className="creed-grid">
-        <div>
-          {site.creed.paragraphs.map((paragraph) => (
-            <p key={paragraph}>{paragraph}</p>
+      <canvas className="creed-canvas" ref={canvasRef} aria-hidden="true" />
+      <div className="creed-shade" aria-hidden="true" />
+      <div className="creed-copy">
+        <p className="kicker">{site.creed.kicker}</p>
+        <h2 className="creed-title">
+          {site.creed.lines.map((line) => (
+            <span className="mask" key={line.text}>
+              <span className={line.emphasis ? "mask-line is-emphasis" : "mask-line"}>{line.text}</span>
+            </span>
           ))}
-          <ul className="pillars">
-            {site.creed.pillars.map((pillar) => (
-              <li key={pillar.title}>
-                <h3>{pillar.title}</h3>
-                <p>{pillar.copy}</p>
-              </li>
+        </h2>
+        <div className="creed-grid">
+          <div>
+            {site.creed.paragraphs.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
             ))}
-          </ul>
+            <ul className="pillars">
+              {site.creed.pillars.map((pillar) => (
+                <li key={pillar.title}>
+                  <h3>{pillar.title}</h3>
+                  <p>{pillar.copy}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <img className="about-mark" src={site.logo} alt="" width={512} height={512} />
         </div>
-        <img className="about-mark" src={site.logo} alt="" width={512} height={512} />
       </div>
     </section>
   );
