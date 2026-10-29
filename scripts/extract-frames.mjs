@@ -65,10 +65,12 @@ const extracted = spawnSync(
     "-i",
     input,
     "-vf",
-    `fps=${fps},scale=1600:-2:flags=lanczos`,
-    "-q:v",
-    "3",
-    join(outDir, "frame_%04d.jpg"),
+    `fps=${fps},scale=1280:-2:flags=lanczos`,
+    "-c:v",
+    "libwebp",
+    "-quality",
+    "62",
+    join(outDir, "frame_%04d.webp"),
   ],
   { stdio: "inherit" },
 );
@@ -78,7 +80,7 @@ if (extracted.status !== 0) {
   process.exit(extracted.status ?? 1);
 }
 
-const count = readdirSync(outDir).filter((file) => /^frame_\d+\.jpg$/.test(file)).length;
+const count = readdirSync(outDir).filter((file) => /^frame_\d+\.webp$/.test(file)).length;
 
 if (count < 2) {
   console.error("Not enough frames were written.");
@@ -87,7 +89,7 @@ if (count < 2) {
 
 const manifest = {
   count,
-  ext: "jpg",
+  ext: "webp",
   pad: 4,
   base: "/sequences/chair/frame_",
 };

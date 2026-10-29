@@ -28,9 +28,9 @@ export function framePixelRatio(): number {
 function framePlan(): FramePlan {
   const narrow = window.matchMedia("(max-width: 420px)").matches;
   const compact = narrow || window.matchMedia("(max-width: 760px)").matches;
-  if (!compact) return { stride: 1, maxEdge: 1600, workers: 4 };
-  if (narrow) return { stride: 3, maxEdge: 640, workers: 2 };
-  return { stride: 2, maxEdge: 800, workers: 2 };
+  if (narrow) return { stride: 3, maxEdge: 720, workers: 3 };
+  if (compact) return { stride: 2, maxEdge: 960, workers: 4 };
+  return { stride: 2, maxEdge: 1280, workers: 5 };
 }
 
 function frameSize(image: FrameImage): { width: number; height: number } {
@@ -58,14 +58,12 @@ function frameUrl(manifest: SequenceManifest, index: number): string {
   return `${manifest.base}${number}.${manifest.ext}`;
 }
 
-function loadImage(url: string): Promise<HTMLImageElement | null> {
+function loadImage(url: string, priority: "high" | "auto" = "auto"): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const image = new Image();
     image.decoding = "async";
-    image.onload = () => {
-      const decode = image.decode?.() ?? Promise.resolve();
-      void decode.then(() => resolve(image)).catch(() => resolve(image));
-    };
+    image.fetchPriority = priority;
+    image.onload = () => resolve(image);
     image.onerror = () => resolve(null);
     image.src = url;
   });
@@ -90,22 +88,6 @@ function shrinkFrame(image: HTMLImageElement, maxEdge: number): FrameImage {
   return canvas;
 }
 
-async function loadAll(urls: string[], workers: number, maxEdge: number): Promise<(FrameImage | null)[]> {
-  const results: (FrameImage | null)[] = new Array(urls.length).fill(null);
-  let cursor = 0;
-  const pool = Array.from({ length: Math.min(workers, urls.length) }, async () => {
-    while (cursor < urls.length) {
-      const index = cursor;
-      cursor += 1;
-      const image = await loadImage(urls[index] ?? "");
-      results[index] = image ? shrinkFrame(image, maxEdge) : null;
-      if (index % 3 === 2) await new Promise((resolve) => setTimeout(resolve, 0));
-    }
-  });
-  await Promise.all(pool);
-  return results;
-}
-
 function drawCover(
   ctx: CanvasRenderingContext2D,
   image: FrameImage,
@@ -128,6 +110,9 @@ export class FrameSequence {
   private images: (FrameImage | null)[] = [];
   private mode: SequenceMode = "procedural";
   private pending: Promise<SequenceMode> | null = null;
+  private settle: ((mode: SequenceMode) => void) | null = null;
+  private settled = false;
+  private listeners = new Set<() => void>();
   private lastDrawn: FrameImage | null = null;
   private lastWidth = 0;
   private lastHeight = 0;
@@ -142,8 +127,20 @@ export class FrameSequence {
   }
 
   init(): Promise<SequenceMode> {
-    this.pending ??= this.load();
+    if (!this.pending) {
+      this.pending = new Promise((resolve) => {
+        this.settle = resolve;
+      });
+      void this.load();
+    }
     return this.pending;
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   draw(ctx: CanvasRenderingContext2D, width: number, height: number, progress: number): void {
@@ -189,17 +186,36 @@ export class FrameSequence {
     return null;
   }
 
-  private async load(): Promise<SequenceMode> {
+  private settleOnce(mode: SequenceMode): void {
+    if (this.settled) return;
+    this.settled = true;
+    this.mode = mode;
+    this.settle?.(mode);
+    this.emit();
+  }
+
+  private emit(): void {
+    this.listeners.forEach((listener) => listener());
+  }
+
+  private async load(): Promise<void> {
     let data: unknown;
     try {
-      const response = await fetch(this.manifestUrl, { cache: "no-cache" });
-      if (!response.ok) return "procedural";
+      const response = await fetch(this.manifestUrl);
+      if (!response.ok) {
+        this.settleOnce("procedural");
+        return;
+      }
       data = await response.json();
     } catch {
-      return "procedural";
+      this.settleOnce("procedural");
+      return;
     }
 
-    if (!isManifest(data)) return "procedural";
+    if (!isManifest(data)) {
+      this.settleOnce("procedural");
+      return;
+    }
 
     const plan = framePlan();
     const indexes: number[] = [];
@@ -207,13 +223,30 @@ export class FrameSequence {
     const last = data.count - 1;
     if (indexes[indexes.length - 1] !== last) indexes.push(last);
     const urls = indexes.map((index) => frameUrl(data, index));
-    const images = await loadAll(urls, plan.workers, plan.maxEdge);
-    const loaded = images.filter((image) => image !== null).length;
-    if (loaded / images.length < 0.9) return "procedural";
+    this.images = new Array(urls.length).fill(null);
 
-    this.images = images;
-    this.mode = "frames";
-    return "frames";
+    const store = (index: number, image: HTMLImageElement | null) => {
+      if (!image) return;
+      this.images[index] = shrinkFrame(image, plan.maxEdge);
+      this.mode = "frames";
+      this.settleOnce("frames");
+      this.emit();
+    };
+
+    store(0, await loadImage(urls[0] ?? "", "high"));
+
+    let cursor = 1;
+    const pool = Array.from({ length: Math.min(plan.workers, Math.max(urls.length - 1, 0)) }, async () => {
+      while (cursor < urls.length) {
+        const index = cursor;
+        cursor += 1;
+        store(index, await loadImage(urls[index] ?? ""));
+      }
+    });
+    await Promise.all(pool);
+
+    const loaded = this.images.filter((image) => image !== null).length;
+    if (loaded === 0) this.settleOnce("procedural");
   }
 }
 

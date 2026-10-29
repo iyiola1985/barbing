@@ -86,10 +86,14 @@ export function Hero({ sequence, mode, reduced }: HeroProps) {
     const resize = () => render(progress);
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
+    const stop = sequence.subscribe(() => render(progress));
     render(reduced ? 0.42 : 0);
 
     if (reduced) {
-      return () => observer.disconnect();
+      return () => {
+        stop();
+        observer.disconnect();
+      };
     }
 
     const compactQuery = window.matchMedia("(max-width: 760px)");
@@ -107,6 +111,7 @@ export function Hero({ sequence, mode, reduced }: HeroProps) {
     });
 
     return () => {
+      stop();
       observer.disconnect();
       trigger.kill();
     };

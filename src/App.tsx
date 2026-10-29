@@ -27,13 +27,22 @@ export default function App() {
     let live = true;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const minDelay = new Promise((resolve) => {
-      window.setTimeout(resolve, reducedMotion ? 280 : 1500);
+      window.setTimeout(resolve, reducedMotion ? 120 : 280);
     });
+    const opened = Promise.race([
+      sequence.current.init(),
+      new Promise<SequenceMode>((resolve) => {
+        window.setTimeout(() => resolve(sequence.current.getMode()), reducedMotion ? 600 : 1400);
+      }),
+    ]);
 
-    void Promise.all([sequence.current.init(), minDelay]).then(([nextMode]) => {
+    void Promise.all([opened, minDelay]).then(([nextMode]) => {
       if (!live) return;
       setMode(nextMode);
       setBooting(false);
+    });
+    void sequence.current.init().then((nextMode) => {
+      if (live) setMode(nextMode);
     });
 
     return () => {

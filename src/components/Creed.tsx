@@ -45,6 +45,7 @@ export function Creed({ reduced }: CreedProps) {
     const resize = () => paint(progress);
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
+    const stop = aboutSequence.subscribe(() => paint(progress));
     paint(progress);
     const frame = requestAnimationFrame(() => {
       if (alive) paint(progress);
@@ -59,6 +60,7 @@ export function Creed({ reduced }: CreedProps) {
       startFilm();
       return () => {
         alive = false;
+        stop();
         cancelAnimationFrame(frame);
         observer.disconnect();
       };
@@ -113,6 +115,7 @@ export function Creed({ reduced }: CreedProps) {
 
     return () => {
       alive = false;
+      stop();
       cancelAnimationFrame(frame);
       observer.disconnect();
       arm?.kill();
