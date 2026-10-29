@@ -96,12 +96,30 @@ function drawCover(
 ): void {
   const { width: sourceWidth, height: sourceHeight } = frameSize(image);
   if (!sourceWidth || !sourceHeight) return;
+  const portrait = width < 760 && height > width * 1.15;
+  if (portrait) {
+    // Phone: show the chair large and centered so the turn reads while scrolling.
+    const scale = width / (sourceWidth * 0.5);
+    const drawWidth = sourceWidth * scale;
+    const drawHeight = sourceHeight * scale;
+    const subject = 0.62;
+    ctx.fillStyle = "#090807";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(
+      image,
+      width * 0.5 - drawWidth * subject,
+      height * 0.56 - drawHeight / 2,
+      drawWidth,
+      drawHeight,
+    );
+    return;
+  }
+
   const scale = Math.max(width / sourceWidth, height / sourceHeight);
   const drawWidth = sourceWidth * scale;
   const drawHeight = sourceHeight * scale;
   const minX = width - drawWidth;
-  const focus = width < 700 ? 1.02 : 0.68;
-  const focusX = width * focus - drawWidth / 2;
+  const focusX = width * 0.68 - drawWidth / 2;
   const x = Math.min(0, Math.max(minX, focusX));
   ctx.drawImage(image, x, (height - drawHeight) / 2, drawWidth, drawHeight);
 }

@@ -1031,9 +1031,22 @@ address {
   }
 
   .hero-shade {
-    background:
-      linear-gradient(180deg, rgba(9, 8, 7, 0.45), rgba(9, 8, 7, 0.12) 38%, rgba(9, 8, 7, 0.5)),
-      linear-gradient(90deg, rgba(9, 8, 7, 0.78) 0%, rgba(9, 8, 7, 0.28) 62%, transparent 100%);
+    background: linear-gradient(
+      180deg,
+      rgba(9, 8, 7, 0.62) 0%,
+      rgba(9, 8, 7, 0.16) 34%,
+      rgba(9, 8, 7, 0.08) 58%,
+      rgba(9, 8, 7, 0.5) 100%
+    );
+  }
+
+  .creed-shade {
+    background: linear-gradient(
+      180deg,
+      rgba(9, 8, 7, 0.72) 0%,
+      rgba(9, 8, 7, 0.28) 42%,
+      rgba(9, 8, 7, 0.62) 100%
+    );
   }
 
   .ritual-body {
