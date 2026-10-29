@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger } from "../animation/gsap";
 import { proceduralChair } from "../animation/proceduralChair";
-import { FrameSequence } from "../animation/sequence";
+import { framePixelRatio, FrameSequence } from "../animation/sequence";
 import { sequences } from "../content/sequences";
 import { site } from "../content/site";
 
@@ -31,7 +31,7 @@ export function Creed({ reduced }: CreedProps) {
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
       if (width < 2 || height < 2) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+      const dpr = framePixelRatio();
       const bitmapWidth = Math.max(1, Math.round(width * dpr));
       const bitmapHeight = Math.max(1, Math.round(height * dpr));
       if (canvas.width !== bitmapWidth || canvas.height !== bitmapHeight) {
@@ -49,11 +49,14 @@ export function Creed({ reduced }: CreedProps) {
     const frame = requestAnimationFrame(() => {
       if (alive) paint(progress);
     });
-    void aboutSequence.init().then(() => {
-      if (alive) paint(progress);
-    });
+    const startFilm = () => {
+      void aboutSequence.init().then(() => {
+        if (alive) paint(progress);
+      });
+    };
 
     if (reduced) {
+      startFilm();
       return () => {
         alive = false;
         cancelAnimationFrame(frame);
@@ -61,11 +64,23 @@ export function Creed({ reduced }: CreedProps) {
       };
     }
 
+    const near = root.getBoundingClientRect().top < window.innerHeight * 1.15;
+    const arm = near
+      ? null
+      : ScrollTrigger.create({
+          trigger: root,
+          start: "top 140%",
+          once: true,
+          onEnter: startFilm,
+        });
+    if (near) startFilm();
+
     const film = ScrollTrigger.create({
       trigger: root,
       start: "top bottom",
       end: "bottom top",
       scrub: true,
+      invalidateOnRefresh: true,
       onUpdate: (self) => paint(self.progress),
     });
 
@@ -100,6 +115,7 @@ export function Creed({ reduced }: CreedProps) {
       alive = false;
       cancelAnimationFrame(frame);
       observer.disconnect();
+      arm?.kill();
       film.kill();
       context.revert();
     };

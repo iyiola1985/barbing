@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 import { soloOpacity } from "../animation/beats";
 import { ScrollTrigger } from "../animation/gsap";
-import type { FrameSequence, SequenceMode } from "../animation/sequence";
+import { framePixelRatio, type FrameSequence, type SequenceMode } from "../animation/sequence";
 import { scrollToId } from "../animation/smoothScroll";
 import { site } from "../content/site";
 
@@ -71,7 +71,7 @@ export function Hero({ sequence, mode, reduced }: HeroProps) {
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
       if (width < 2 || height < 2) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+      const dpr = framePixelRatio();
       const bitmapWidth = Math.max(1, Math.round(width * dpr));
       const bitmapHeight = Math.max(1, Math.round(height * dpr));
       if (canvas.width !== bitmapWidth || canvas.height !== bitmapHeight) {
@@ -92,15 +92,16 @@ export function Hero({ sequence, mode, reduced }: HeroProps) {
       return () => observer.disconnect();
     }
 
+    const compactQuery = window.matchMedia("(max-width: 760px)");
     const trigger = ScrollTrigger.create({
       trigger: root,
       pin,
       start: "top top",
-        end: () => {
-        const compact = window.matchMedia("(max-width: 760px)").matches;
-        return `+=${window.innerHeight * (compact ? 2.6 : 4.2)}`;
+      end: () => {
+        const viewport = document.documentElement.clientHeight || window.innerHeight;
+        return `+=${viewport * (compactQuery.matches ? 3.2 : 4.2)}`;
       },
-      anticipatePin: 1,
+      anticipatePin: compactQuery.matches ? 0 : 1,
       invalidateOnRefresh: true,
       onUpdate: (self) => render(self.progress),
     });
@@ -109,7 +110,7 @@ export function Hero({ sequence, mode, reduced }: HeroProps) {
       observer.disconnect();
       trigger.kill();
     };
-  }, [mode, reduced, sequence]);
+  }, [reduced, sequence]);
 
   const opening = site.hero.beats.find((beat) => beat.mark) ?? site.hero.beats[0];
   const noteBreak = opening ? opening.lede.indexOf(",") : -1;

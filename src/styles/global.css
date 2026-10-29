@@ -27,6 +27,7 @@
 html {
   background: var(--bg);
   scroll-behavior: auto;
+  overscroll-behavior: none;
 }
 
 html.is-booting,
@@ -49,7 +50,6 @@ body {
   line-height: 1.5;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  overflow-x: clip;
 }
 
 body::after {
@@ -322,6 +322,7 @@ a {
   inset: 0;
   width: 100%;
   height: 100%;
+  max-width: none;
 }
 
 .hero-shade {
@@ -488,6 +489,7 @@ a {
   inset: 0;
   width: 100%;
   height: 100%;
+  max-width: none;
 }
 
 .creed-shade {
@@ -1022,6 +1024,16 @@ address {
 
   .hero-frame {
     inset: calc(var(--nav-h) + 0.2rem) 0.45rem 0.45rem;
+  }
+
+  .hero-pin {
+    height: 100svh;
+  }
+
+  .hero-shade {
+    background:
+      linear-gradient(180deg, rgba(9, 8, 7, 0.45), rgba(9, 8, 7, 0.12) 38%, rgba(9, 8, 7, 0.5)),
+      linear-gradient(90deg, rgba(9, 8, 7, 0.78) 0%, rgba(9, 8, 7, 0.28) 62%, transparent 100%);
   }
 
   .ritual-body {

@@ -32,9 +32,16 @@ export function useSmoothScroll(enabled: boolean): void {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!enabled || reduced) return;
 
+    const touch =
+      window.matchMedia("(pointer: coarse)").matches ||
+      window.matchMedia("(max-width: 760px)").matches;
+
     const next = new Lenis({
-      lerp: 0.085,
+      lerp: touch ? 0.1 : 0.085,
       wheelMultiplier: 0.9,
+      syncTouch: touch,
+      syncTouchLerp: 0.1,
+      touchInertiaExponent: 1.2,
     });
 
     lenis = next;
